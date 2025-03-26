@@ -9,8 +9,8 @@
 
 ![image](https://github.com/user-attachments/assets/1d5e4367-35ae-4c46-a87d-39fd0b84bace)<br>
 
-## 1.1 更新内容：
-![image](https://github.com/user-attachments/assets/396f3d80-f17d-4745-a980-d0cdff460ffe)
+## 1.1 更新内容:
+![image](https://github.com/user-attachments/assets/396f3d80-f17d-4745-a980-d0cdff460ffe)<br>
 
 添加日历以及时间选择框，使其修改时更加直观
 
