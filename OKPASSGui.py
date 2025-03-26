@@ -1,9 +1,10 @@
-import os
+import os 
 import shutil
 from datetime import datetime
 import openpyxl
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
+from tkcalendar import DateEntry  # 新增日历组件
 
 class RecordManagerApp:
     def __init__(self, root):
@@ -87,37 +88,64 @@ class RecordManagerApp:
             return None, None
 
     def show_add_dialog(self):
-        """显示添加记录对话框"""
+        """显示添加记录对话框（使用日历和时间选择控件）"""
         dialog = tk.Toplevel(self.root)
         dialog.title("添加新记录")
         dialog.grab_set()
         
-        entries = {}
-        fields = [
-            ("日期 (DD/MM/YYYY)", 0),
-            ("时间 (XX:XX - XX:XX)", 1),
-            ("名称", 2)
-        ]
+        # 日期选择
+        ttk.Label(dialog, text="日期 (DD/MM/YYYY):").grid(row=0, column=0, padx=10, pady=5, sticky=tk.W)
+        date_entry = DateEntry(dialog, date_pattern='dd/MM/yyyy', width=22)
+        date_entry.grid(row=0, column=1, padx=10, pady=5)
         
-        for idx, (label, _) in enumerate(fields):
-            ttk.Label(dialog, text=label).grid(row=idx, column=0, padx=10, pady=5, sticky=tk.W)
-            entry = ttk.Entry(dialog, width=25)
-            entry.grid(row=idx, column=1, padx=10, pady=5)
-            entries[label] = entry
+        # 时间选择控件（开始时间和结束时间）
+        ttk.Label(dialog, text="开始时间:").grid(row=1, column=0, padx=10, pady=5, sticky=tk.W)
+        start_frame = ttk.Frame(dialog)
+        start_frame.grid(row=1, column=1, padx=10, pady=5)
+        start_hour = ttk.Combobox(start_frame, width=3, values=[str(i).zfill(2) for i in range(24)], state='readonly')
+        start_hour.current(8)
+        start_hour.pack(side=tk.LEFT)
+        ttk.Label(start_frame, text=":").pack(side=tk.LEFT)
+        start_minute = ttk.Combobox(start_frame, width=3, values=[str(i).zfill(2) for i in range(60)], state='readonly')
+        start_minute.current(0)
+        start_minute.pack(side=tk.LEFT)
+        
+        ttk.Label(dialog, text="结束时间:").grid(row=2, column=0, padx=10, pady=5, sticky=tk.W)
+        end_frame = ttk.Frame(dialog)
+        end_frame.grid(row=2, column=1, padx=10, pady=5)
+        end_hour = ttk.Combobox(end_frame, width=3, values=[str(i).zfill(2) for i in range(24)], state='readonly')
+        end_hour.current(9)
+        end_hour.pack(side=tk.LEFT)
+        ttk.Label(end_frame, text=":").pack(side=tk.LEFT)
+        end_minute = ttk.Combobox(end_frame, width=3, values=[str(i).zfill(2) for i in range(60)], state='readonly')
+        end_minute.current(0)
+        end_minute.pack(side=tk.LEFT)
+        
+        # 名称输入
+        ttk.Label(dialog, text="名称:").grid(row=3, column=0, padx=10, pady=5, sticky=tk.W)
+        name_entry = ttk.Entry(dialog, width=25)
+        name_entry.grid(row=3, column=1, padx=10, pady=5)
         
         def on_submit():
             try:
-                values = [entries[label].get() for label, _ in fields]
-                if not all(values):
+                # 获取日期（已是正确格式 dd/MM/yyyy）
+                date_str = date_entry.get()
+                # 获取时间，并构造字符串 格式为 "HH:MM - HH:MM"
+                t1 = f"{start_hour.get()}:{start_minute.get()}"
+                t2 = f"{end_hour.get()}:{end_minute.get()}"
+                time_str = f"{t1} - {t2}"
+                
+                name = name_entry.get().strip()
+                if not date_str or not time_str or not name:
                     raise ValueError("所有字段必须填写")
                 
-                self.add_record(values)
+                self.add_record([date_str, time_str, name])
                 dialog.destroy()
                 self.update_record_count()
             except Exception as e:
                 messagebox.showerror("错误", str(e))
         
-        ttk.Button(dialog, text="提交", command=on_submit).grid(row=3, columnspan=2, pady=10)
+        ttk.Button(dialog, text="提交", command=on_submit).grid(row=4, columnspan=2, pady=10)
 
     def add_record(self, record):
         """添加新记录"""
@@ -223,28 +251,59 @@ class RecordManagerApp:
         ttk.Button(dialog, text="选择", command=on_select).pack(pady=10)
 
     def show_edit_dialog(self, record):
-        """显示编辑对话框"""
+        """显示编辑对话框（使用日历和时间选择控件）"""
         dialog = tk.Toplevel(self.root)
         dialog.title("编辑记录")
         dialog.grab_set()
         
-        # 日期输入
-        ttk.Label(dialog, text="日期：").grid(row=0, column=0, padx=10, pady=5, sticky=tk.E)
-        date_entry = ttk.Entry(dialog, width=25)
-        date_entry.insert(0, record['date'])
+        # 日期选择，解析已有日期
+        ttk.Label(dialog, text="日期:").grid(row=0, column=0, padx=10, pady=5, sticky=tk.E)
+        try:
+            init_date = datetime.strptime(record['date'], "%d/%m/%Y")
+        except Exception:
+            init_date = datetime.now()
+        date_entry = DateEntry(dialog, date_pattern='dd/MM/yyyy', width=22)
+        date_entry.set_date(init_date)
         date_entry.grid(row=0, column=1, padx=10, pady=5)
         
-        # 时间输入
-        ttk.Label(dialog, text="时间：").grid(row=1, column=0, padx=10, pady=5, sticky=tk.E)
-        time_entry = ttk.Entry(dialog, width=25)
-        time_entry.insert(0, record['time'])
-        time_entry.grid(row=1, column=1, padx=10, pady=5)
+        # 时间选择（解析已有时间，格式 “HH:MM - HH:MM”）
+        ttk.Label(dialog, text="开始时间:").grid(row=1, column=0, padx=10, pady=5, sticky=tk.E)
+        start_frame = ttk.Frame(dialog)
+        start_frame.grid(row=1, column=1, padx=10, pady=5)
+        start_hour = ttk.Combobox(start_frame, width=3, values=[str(i).zfill(2) for i in range(24)], state='readonly')
+        start_minute = ttk.Combobox(start_frame, width=3, values=[str(i).zfill(2) for i in range(60)], state='readonly')
+        # 结束时间
+        ttk.Label(dialog, text="结束时间:").grid(row=2, column=0, padx=10, pady=5, sticky=tk.E)
+        end_frame = ttk.Frame(dialog)
+        end_frame.grid(row=2, column=1, padx=10, pady=5)
+        end_hour = ttk.Combobox(end_frame, width=3, values=[str(i).zfill(2) for i in range(24)], state='readonly')
+        end_minute = ttk.Combobox(end_frame, width=3, values=[str(i).zfill(2) for i in range(60)], state='readonly')
         
-        # 保存按钮
+        # 解析原时间数据
+        try:
+            t1, t2 = record['time'].split(" - ")
+            sh, sm = t1.split(":")
+            eh, em = t2.split(":")
+        except Exception:
+            sh, sm, eh, em = "08", "00", "09", "00"
+        
+        start_hour.set(sh)
+        start_minute.set(sm)
+        end_hour.set(eh)
+        end_minute.set(em)
+        start_hour.pack(side=tk.LEFT)
+        ttk.Label(start_frame, text=":").pack(side=tk.LEFT)
+        start_minute.pack(side=tk.LEFT)
+        end_hour.pack(in_=end_frame, side=tk.LEFT)
+        ttk.Label(end_frame, text=":").pack(side=tk.LEFT)
+        end_minute.pack(in_=end_frame, side=tk.LEFT)
+        
         def on_save():
             try:
-                new_date = date_entry.get() or record['date']
-                new_time = time_entry.get() or record['time']
+                new_date = date_entry.get()
+                t1 = f"{start_hour.get()}:{start_minute.get()}"
+                t2 = f"{end_hour.get()}:{end_minute.get()}"
+                new_time = f"{t1} - {t2}"
                 
                 if not new_date or not new_time:
                     raise ValueError("日期和时间不能为空")
@@ -255,7 +314,7 @@ class RecordManagerApp:
             except Exception as e:
                 messagebox.showerror("错误", str(e))
         
-        ttk.Button(dialog, text="保存", command=on_save).grid(row=2, columnspan=2, pady=10)
+        ttk.Button(dialog, text="保存", command=on_save).grid(row=3, columnspan=2, pady=10)
 
     def update_record(self, row, new_date, new_time):
         """更新记录"""
